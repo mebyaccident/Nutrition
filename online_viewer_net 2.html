@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>NutriTrack</title>
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="https://img.icons8.com/fluency/192/organic-food.png">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; user-select: none; -webkit-tap-highlight-color: transparent; background-color: #F2F2F7; }
+        .chart-ring { transition: stroke-dasharray 0.5s ease; transform: rotate(-90deg); transform-origin: 50% 50%; }
+        .hidden { display: none !important; }
+        /* Sanftes Scrollen */
+        html { scroll-behavior: smooth; }
+    </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden text-gray-900">
+
+    <!-- Header (Fixiert) -->
+    <div class="bg-white pt-12 pb-4 px-6 shadow-sm z-20 shrink-0">
+        <div class="flex justify-between items-center">
+            <button onclick="changeDate(-1)" class="p-2 bg-gray-100 rounded-full active:bg-gray-200 shadow-sm">
+                <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+            </button>
+            <div class="text-center">
+                <h2 id="date-display" class="font-semibold text-lg">Heute</h2>
+                <span id="status-badge" class="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-400 uppercase tracking-wide font-bold">Lade...</span>
+            </div>
+            <button onclick="changeDate(1)" class="p-2 bg-gray-100 rounded-full active:bg-gray-200 shadow-sm">
+                <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- Scrollbarer Inhalt -->
+    <div id="content-area" class="flex-1 overflow-y-auto p-4 space-y-6 pb-20">
+        
+        <!-- 1. Macro Ring Chart -->
+        <div id="macro-card" class="bg-white rounded-3xl shadow-sm p-6 flex flex-col items-center relative">
+            <div class="relative w-48 h-48">
+                <svg width="100%" height="100%" viewBox="0 0 100 100">
+                    <circle cx="50" cy="50" r="40" fill="none" stroke="#f3f4f6" stroke-width="10" />
+                    <!-- Ringe werden per JS gefüllt -->
+                    <circle id="ring-protein" class="chart-ring" cx="50" cy="50" r="40" fill="none" stroke="#34C759" stroke-width="10" stroke-dasharray="0 251" />
+                    <circle id="ring-carbs" class="chart-ring" cx="50" cy="50" r="40" fill="none" stroke="#007AFF" stroke-width="10" stroke-dasharray="0 251" stroke-dashoffset="0" />
+                    <circle id="ring-fat" class="chart-ring" cx="50" cy="50" r="40" fill="none" stroke="#FF9500" stroke-width="10" stroke-dasharray="0 251" stroke-dashoffset="0" />
+                </svg>
+                <div class="absolute inset-0 flex flex-col items-center justify-center">
+                    <span id="val-cals" class="text-3xl font-bold text-gray-900">0</span>
+                    <span class="text-xs text-gray-500 font-medium">kcal</span>
+                </div>
+            </div>
+            
+            <!-- Legende -->
+            <div class="flex justify-between w-full mt-6 px-4">
+                <div class="flex flex-col items-center">
+                    <div class="flex items-center gap-1 mb-1"><div class="w-2 h-2 rounded-full bg-[#34C759]"></div><span class="text-xs text-gray-500">Protein</span></div>
+                    <span id="val-prot" class="font-bold text-sm">0g</span>
+                </div>
+                <div class="flex flex-col items-center">
+                    <div class="flex items-center gap-1 mb-1"><div class="w-2 h-2 rounded-full bg-[#007AFF]"></div><span class="text-xs text-gray-500">Carbs</span></div>
+                    <span id="val-carb" class="font-bold text-sm">0g</span>
+                </div>
+                <div class="flex flex-col items-center">
+                    <div class="flex items-center gap-1 mb-1"><div class="w-2 h-2 rounded-full bg-[#FF9500]"></div><span class="text-xs text-gray-500">Fett</span></div>
+                    <span id="val-fat" class="font-bold text-sm">0g</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. Spotlight (Wichtige Werte) -->
+        <div id="spotlight-container" class="bg-white p-5 rounded-3xl shadow-sm">
+            <h3 class="font-bold text-lg mb-4 flex items-center gap-2 text-purple-600">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                Spotlight
+            </h3>
+            <div id="spotlight-list" class="space-y-3">
+                <p class="text-center text-gray-400 text-sm py-2">Lade...</p>
+            </div>
+        </div>
+
+        <!-- 3. Alle Details (Vitamine & Mineralstoffe) -->
+        <div id="details-container" class="space-y-6">
+            <!-- Vitamine -->
+            <div class="bg-white p-5 rounded-3xl shadow-sm">
+                <h3 class="font-bold text-lg mb-4 flex items-center gap-2 text-blue-500">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2.69l5.74 5.74a8 8 0 1 1-11.31 0z"/></svg>
+                    Vitamine
+                </h3>
+                <div id="vitamins-list" class="space-y-3"></div>
+            </div>
+
+            <!-- Mineralstoffe -->
+            <div class="bg-white p-5 rounded-3xl shadow-sm">
+                <h3 class="font-bold text-lg mb-4 flex items-center gap-2 text-orange-500">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                    Mineralstoffe & Co.
+                </h3>
+                <div id="minerals-list" class="space-y-3"></div>
+            </div>
+        </div>
+
+        <!-- 4. Einstellungen / Footer -->
+        <div class="text-center pt-8 pb-10 opacity-60">
+            <button onclick="toggleSettings()" class="flex items-center justify-center gap-2 mx-auto text-sm font-medium text-gray-500 bg-gray-100 px-4 py-2 rounded-xl">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.47a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.39a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/></svg>
+                Datenquelle konfigurieren
+            </button>
+            
+            <!-- Settings Bereich (versteckt) -->
+            <div id="settings-area" class="hidden mt-4 px-4">
+                <input type="text" id="sheet-url-input" class="w-full p-3 text-xs bg-white rounded-xl border border-gray-200 mb-2 font-mono" placeholder="https://docs.google.com/..." value="https://docs.google.com/spreadsheets/d/e/2PACX-1vRidDbyBEj3_IVywiMpq6G0M29l5KGlH2re8LnvpxQoIXCS71x7Ro6F1oqdgB0WHB2I7SS3dAbc9TFV/pub?gid=558527144&single=true&output=csv">
+                <button onclick="saveAndReload()" class="w-full bg-black text-white py-3 rounded-xl text-sm font-bold">Speichern & Neu laden</button>
+            </div>
+            
+            <p id="error-text" class="text-red-500 text-xs mt-4 px-4"></p>
+        </div>
+
+    </div>
+
+    <!-- JAVASCRIPT (Robust & Vanilla) -->
+    <script>
+        // --- CONFIG ---
+        // Standard URL (dein Link)
+        const DEFAULT_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRidDbyBEj3_IVywiMpq6G0M29l5KGlH2re8LnvpxQoIXCS71x7Ro6F1oqdgB0WHB2I7SS3dAbc9TFV/pub?gid=558527144&single=true&output=csv";
+        
+        let appData = {
+            parsedDays: [],
+            currentDate: new Date(),
+            sheetUrl: localStorage.getItem('nutriTrackUrl') || DEFAULT_URL
+        };
+
+        // Input Feld mit aktueller URL füllen
+        document.getElementById('sheet-url-input').value = appData.sheetUrl;
+
+        // --- HELPER ---
+        function parseGermanNumber(str) {
+            if (!str) return 0;
+            const cleanStr = String(str).replace(/\./g, '').replace(',', '.');
+            const num = parseFloat(cleanStr);
+            return isNaN(num) ? 0 : num;
+        }
+
+        function formatNumber(num) {
+            return new Intl.NumberFormat('de-DE', { maximumFractionDigits: 1 }).format(num);
+        }
+
+        function parseGermanDate(dateStr) {
+            if (!dateStr) return null;
+            const cleanDate = dateStr.replace(/"/g, '');
+            const parts = cleanDate.split('.');
+            if (parts.length !== 3) return null;
+            return new Date(parts[2], parts[1] - 1, parts[0]);
+        }
+
+        function splitCSV(str) {
+            const result = []; let current = ''; let inQuote = false;
+            for (let i = 0; i < str.length; i++) {
+                const char = str[i];
+                if (char === '"') inQuote = !inQuote;
+                else if (char === ',' && !inQuote) { result.push(current); current = ''; }
+                else current += char;
+            }
+            result.push(current); return result.map(s => s.trim());
+        }
+
+        // --- DATA LOGIC ---
+        async function fetchData() {
+            const badge = document.getElementById('status-badge');
+            const errText = document.getElementById('error-text');
+            
+            badge.innerText = "LADE...";
+            badge.className = "text-[10px] px-2 py-0.5 rounded-full bg-blue-100 text-blue-600 uppercase tracking-wide font-bold";
+            errText.innerText = "";
+
+            try {
+                const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(appData.sheetUrl);
+                const response = await fetch(proxyUrl);
+                if (!response.ok) throw new Error("Netzwerk Fehler");
+                
+                const text = await response.text();
+                processData(text);
+                
+                badge.innerText = "AKTUELL";
+                badge.className = "text-[10px] px-2 py-0.5 rounded-full bg-green-100 text-green-600 uppercase tracking-wide font-bold";
+            } catch (e) {
+                console.error(e);
+                badge.innerText = "FEHLER";
+                badge.className = "text-[10px] px-2 py-0.5 rounded-full bg-red-100 text-red-600 uppercase tracking-wide font-bold";
+                errText.innerText = "Verbindungsfehler. Bitte Internet prüfen oder URL checken.";
+                toggleSettings(true); // Öffne Settings bei Fehler
+            }
+        }
+
+        function processData(csvText) {
+            const lines = csvText.split('\n').map(l => l.trim()).filter(l => l);
+            if (lines.length < 3) return;
+
+            const headers = splitCSV(lines[0]);
+            // Indizes basierend auf deinem Sheet
+            const IDX = { date: 0, cal: 1, prot: 2, fat: 3, carb: 4 };
+            
+            // Parse Ziele (Zeile 2)
+            const targetCols = splitCSV(lines[1]);
+            const targets = {};
+            headers.forEach((h, i) => {
+                if (i >= 5) targets[h.replace(/"/g, '').trim()] = parseGermanNumber(targetCols[i]);
+            });
+
+            // Parse Tage
+            appData.parsedDays = lines.slice(2).map(line => {
+                if (line.length < 10) return null;
+                const cols = splitCSV(line);
+                const dateObj = parseGermanDate(cols[IDX.date]);
+                if (!dateObj) return null;
+
+                const day = {
+                    date: dateObj,
+                    dateStr: dateObj.toLocaleDateString('de-DE'),
+                    macros: {
+                        cal: parseGermanNumber(cols[IDX.cal]),
+                        prot: parseGermanNumber(cols[IDX.prot]),
+                        fat: parseGermanNumber(cols[IDX.fat]),
+                        carb: parseGermanNumber(cols[IDX.carb])
+                    },
+                    micros: []
+                };
+
+                // Mikros extrahieren
+                headers.forEach((h, i) => {
+                    if (i >= 5 && cols[i]) {
+                        const name = h.replace(/"/g, '').trim();
+                        const val = parseGermanNumber(cols[i]);
+                        const tgt = targets[name] || 0;
+                        // Einfache Kategorisierung (hartkodiert basierend auf typischer Reihenfolge, oder alles anzeigen)
+                        // Wir nutzen alles ab Spalte 5
+                        day.micros.push({ 
+                            name, val, tgt, 
+                            pct: tgt > 0 ? Math.round((val/tgt)*100) : 0,
+                            // Einfache Unterscheidung Vitamine vs Mineralien basierend auf Index
+                            // F-S (5-18) = Vitamine, T+ (19+) = Mineralien
+                            type: (i >= 5 && i <= 18) ? 'vitamin' : 'mineral'
+                        });
+                    }
+                });
+
+                return day;
+            }).filter(Boolean);
+
+            // Sortieren: Neuestes Datum zuerst finden
+            if (appData.parsedDays.length > 0) {
+                appData.parsedDays.sort((a, b) => a.date - b.date);
+                appData.currentDate = appData.parsedDays[appData.parsedDays.length - 1].date;
+            }
+            
+            render();
+        }
+
+        // --- RENDER LOGIC ---
+        function render() {
+            const dateStr = appData.currentDate.toLocaleDateString('de-DE');
+            document.getElementById('date-display').innerText = dateStr;
+
+            const currentDay = appData.parsedDays.find(d => d.dateStr === dateStr);
+            
+            if (!currentDay) {
+                document.getElementById('val-cals').innerText = "-";
+                document.getElementById('val-prot').innerText = "-";
+                document.getElementById('val-carb').innerText = "-";
+                document.getElementById('val-fat').innerText = "-";
+                // Leere Listen
+                document.getElementById('spotlight-list').innerHTML = '<p class="text-center text-gray-400 text-xs">Keine Daten für diesen Tag.</p>';
+                document.getElementById('vitamins-list').innerHTML = '';
+                document.getElementById('minerals-list').innerHTML = '';
+                
+                // Ringe resetten
+                setRing('ring-protein', 0, 0);
+                setRing('ring-carbs', 0, 0);
+                setRing('ring-fat', 0, 0);
+                return;
+            }
+
+            // 1. Macros
+            updateChart(currentDay.macros.cal, currentDay.macros.prot, currentDay.macros.carb, currentDay.macros.fat);
+
+            // 2. Spotlight (Wichtige Mikros)
+            const spotlightKeys = ['Eisen', 'Calcium', 'B12', 'Wasser', 'Omega'];
+            const spotlightItems = currentDay.micros.filter(m => spotlightKeys.some(k => m.name.includes(k)));
+            renderList('spotlight-list', spotlightItems);
+
+            // 3. Vitamine (Full List)
+            const vitamins = currentDay.micros.filter(m => m.type === 'vitamin');
+            renderList('vitamins-list', vitamins);
+
+            // 4. Mineralien (Full List)
+            const minerals = currentDay.micros.filter(m => m.type === 'mineral');
+            renderList('minerals-list', minerals);
+        }
+
+        function renderList(containerId, items) {
+            const el = document.getElementById(containerId);
+            if (items.length === 0) {
+                el.innerHTML = '<p class="text-gray-400 text-xs italic">Keine Werte verfügbar.</p>';
+                return;
+            }
+            
+            let html = '';
+            items.forEach(item => {
+                const barColor = item.pct >= 95 ? 'bg-green-500' : (item.pct < 50 ? 'bg-red-400' : 'bg-yellow-400');
+                html += `
+                    <div class="mb-3 last:mb-0">
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-sm font-medium text-gray-700 truncate max-w-[150px]">${item.name}</span>
+                            <span class="text-xs text-gray-500 font-mono">${formatNumber(item.val)} / ${formatNumber(item.tgt)}</span>
+                        </div>
+                        <div class="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
+                            <div class="h-full rounded-full transition-all duration-500 ${barColor}" style="width: ${Math.min(item.pct, 100)}%"></div>
+                        </div>
+                    </div>
+                `;
+            });
+            el.innerHTML = html;
+        }
+
+        function updateChart(cal, prot, carb, fat) {
+            document.getElementById('val-cals').innerText = Math.round(cal);
+            document.getElementById('val-prot').innerText = formatNumber(prot) + 'g';
+            document.getElementById('val-carb').innerText = formatNumber(carb) + 'g';
+            document.getElementById('val-fat').innerText = formatNumber(fat) + 'g';
+
+            const C = 251; // Umfang
+            const total = (prot * 4) + (carb * 4) + (fat * 9);
+            const safeTotal = total || 1;
+            
+            const pPct = (prot * 4) / safeTotal;
+            const cPct = (carb * 4) / safeTotal;
+            const fPct = (fat * 9) / safeTotal;
+
+            setRing('ring-protein', pPct * C, 0);
+            setRing('ring-carbs', cPct * C, pPct * C);
+            setRing('ring-fat', fPct * C, (pPct + cPct) * C);
+        }
+
+        function setRing(id, length, offset) {
+            const el = document.getElementById(id);
+            el.style.strokeDasharray = `${Math.max(0, length - 2)} ${251 - length + 2}`;
+            el.style.strokeDashoffset = -offset;
+        }
+
+        // --- USER ACTIONS ---
+        function changeDate(delta) {
+            const newDate = new Date(appData.currentDate);
+            newDate.setDate(newDate.getDate() + delta);
+            appData.currentDate = newDate;
+            render();
+        }
+
+        function toggleSettings(forceOpen = false) {
+            const el = document.getElementById('settings-area');
+            if (forceOpen || el.classList.contains('hidden')) {
+                el.classList.remove('hidden');
+                // Scroll to bottom
+                setTimeout(() => {
+                    const container = document.getElementById('content-area');
+                    container.scrollTop = container.scrollHeight;
+                }, 100);
+            } else {
+                el.classList.add('hidden');
+            }
+        }
+
+        function saveAndReload() {
+            const newUrl = document.getElementById('sheet-url-input').value;
+            if (newUrl) {
+                localStorage.setItem('nutriTrackUrl', newUrl);
+                appData.sheetUrl = newUrl;
+                fetchData();
+            }
+        }
+
+        // Start
+        fetchData();
+
+    </script>
+</body>
+</html>
